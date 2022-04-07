@@ -1,0 +1,6 @@
+github.com/google/uuid v1.3.0 h1:t6JiXgmwXMjEs8VusXIJk2BXHsn+wx8BZdTaoZ5fu7I=
+github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/hotei/bmp v0.0.0-20150430041436-f620cebab0c7 h1:NlUATi3cllRJhpM4mfR9BxiLRXT83bcSLcOa+S8lrME=
+github.com/hotei/bmp v0.0.0-20150430041436-f620cebab0c7/go.mod h1:Hku3FQ2laCEwSv7Z8YkC0er38jLaUycUCbsFkWMr+z4=
+github.com/rubenfonseca/fastimage v0.0.0-20170112075114-7e006a27a95b h1:F8SRXk6Ahld/UDZqhM5XFNsGRRjMYhpNz5mxe5bjSKI=
+github.com/rubenfonseca/fastimage v0.0.0-20170112075114-7e006a27a95b/go.mod h1:za/FM5/4JjuNHv6y8CdQrGuxtnJP4NBVauNR05i/0HQ=
