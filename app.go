@@ -3,6 +3,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"image"
@@ -20,7 +22,6 @@ import (
 
 	"os"
 
-	"github.com/google/uuid"
 	"github.com/rubenfonseca/fastimage"
 )
 
@@ -108,6 +109,10 @@ func main() {
 		flag.Usage()
 		return
 	}
+	if len(outputPath) == 0 {
+		flag.Usage()
+		return
+	}
 
 	picarray.SetMode(picarray.Alpha)
 	if black {
@@ -117,10 +122,6 @@ func main() {
 	}
 
 	dot_c_buffer.WriteString(`#include "bitmap.h"` + "\n\n")
-	uid := uuid.New()
-	ifndef := strings.Replace(uid.String(), "-", "_", -1)
-	dot_h_buffer.WriteString("#ifndef _" + ifndef + "_\n")
-	dot_h_buffer.WriteString("#define _" + ifndef + "_\n")
 	dot_h_buffer.WriteString(`#include "bitmap.h"` + "\n\n")
 
 	var totalByteSize int = 0
@@ -141,10 +142,6 @@ func main() {
 			return nil
 		})
 
-	if len(outputPath) == 0 {
-		flag.Usage()
-		return
-	}
 	if checkFileIsExist(outputPath + ".c") {
 		check(os.Remove(outputPath + ".c"))
 	}
@@ -161,10 +158,18 @@ func main() {
 	outputHFile, err := os.Create(outputPath + ".h")
 	check(err)
 	defer outputHFile.Close()
+
+	hash := sha1.New()
+	hash.Write(dot_h_buffer.Bytes())
+	hashStr := hex.EncodeToString(hash.Sum(nil))
+
+	outputHFile.WriteString("#ifndef _" + string(hashStr) + "_\n")
+	outputHFile.WriteString("#define _" + string(hashStr) + "_\n")
 	outputHFile.WriteString(dot_h_buffer.String())
 
 	fmt.Println("Total " + strconv.Itoa(totalFileCount) + " Files")
 	fmt.Println("Total " + strconv.Itoa(totalByteSize) + " Bytes")
+	fmt.Println("Hash = " + hashStr)
 	fmt.Println("Convert Complete!")
 	return
 }
