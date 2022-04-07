@@ -52,6 +52,9 @@ func Image2buffer(img image.Image, w int, h int, buffer *bytes.Buffer) {
 					}
 				}
 			}
+			if x > 0 {
+				buffer.WriteString(" ")
+			}
 			buffer.WriteString(fmt.Sprintf("0x%02X,", c_byte))
 		}
 	}
@@ -94,6 +97,9 @@ func Gif2buffer(gif *gif.GIF, w int, h int, buffer *bytes.Buffer) {
 							}
 						}
 					}
+				}
+				if x > 0 {
+					buffer.WriteString(" ")
 				}
 				buffer.WriteString(fmt.Sprintf("0x%02X,", c_byte))
 				cnt += 1
