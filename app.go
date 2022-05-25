@@ -92,7 +92,7 @@ func pic2array(path string, varName string, cBuffer *bytes.Buffer, hBuffer *byte
 	h = img.Bounds().Size().Y
 	fmt.Println("Width:", w, "Height:", h)
 	byteSize = get_byte_size(w, h)
-	cBuffer.WriteString(fmt.Sprintf("const uint8_t %s[%d] = {\n", varName, byteSize))
+	cBuffer.WriteString(fmt.Sprintf("const uint8_t %s[%d] = {", varName, byteSize))
 	picarray.Image2buffer(img, w, h, cBuffer)
 	cBuffer.WriteString("\n};")
 	cBuffer.WriteString(fmt.Sprintf("\nconst sBITMAP %s_bmp = {%d, %d, %s};\n", varName, w, h, varName))
