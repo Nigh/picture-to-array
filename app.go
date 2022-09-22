@@ -26,7 +26,7 @@ import (
 	"github.com/rubenfonseca/fastimage"
 )
 
-var Version string = "v1.28"
+var Version string = "v1.29"
 
 func check(e error) {
 	if e != nil {
@@ -93,7 +93,8 @@ func walker(realPath string, f os.FileInfo, err error) error {
 
 		fmt.Println("[DIR] " + f.Name() + " " + realPath)
 	} else {
-		if strings.HasPrefix(f.Name(), ".") || strings.HasPrefix(f.Name(), "_") {
+		// TODO: maintain a ignore list in which type of files which would be genarated by system automatically, such as Thumb.db
+		if strings.HasPrefix(f.Name(), ".") || strings.HasPrefix(f.Name(), "_") || strings.HasSuffix(f.Name(), "db") {
 			fmt.Println("\t[FILE]\t「" + f.Name() + "」 !!!IGNORED!!!")
 			return nil
 		}
