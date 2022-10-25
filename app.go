@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"image/gif"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -22,11 +21,9 @@ import (
 	_ "image/png"
 
 	"os"
-
-	"github.com/rubenfonseca/fastimage"
 )
 
-var Version string = "v1.29"
+var Version string = "v1.30"
 
 func check(e error) {
 	if e != nil {
@@ -46,31 +43,60 @@ var (
 	hp         bool
 	inputPath  string
 	outputPath string
-	alpha      bool
-	black      bool
-	white      bool
+	colorMode  string
 )
 
+func getParrayColorMode() func(string) picarray.ColorMode {
+	colormode := map[string]picarray.ColorMode{
+		"alpha":  picarray.Alpha,
+		"black":  picarray.Black,
+		"white":  picarray.White,
+		"rgb565": picarray.RGB565,
+		"rgb888": picarray.RGB888,
+	}
+	return func(key string) picarray.ColorMode {
+		if _, ok := colormode[key]; ok {
+			return colormode[key]
+		}
+		return picarray.Alpha
+	}
+}
+
+func colormodeExplain() string {
+	ret := "alpha|black|white|rgb565|rgb888"
+	ret += "\nalpha - alpha pixel as 0"
+	ret += "\nblack - black pixel as 1"
+	ret += "\nwhite - white pixel as 1"
+	ret += "\nrgb565 - 16bit R5 G6 B5"
+	ret += "\nrgb888 - 24bit R8 G8 B8"
+	return ret
+}
 func init() {
 	flag.BoolVar(&hp, "h", false, "help")
 	flag.StringVar(&inputPath, "in", "", "the picture file or dir for convert to c language array")
 	flag.StringVar(&outputPath, "out", "", "the c format array output filename")
-	flag.BoolVar(&alpha, "a", false, "alpha mode - alpha pixel as 0")
-	flag.BoolVar(&black, "b", false, "black mode - black pixel as 1")
-	flag.BoolVar(&white, "w", false, "white mode - white pixel as 1")
+	flag.StringVar(&colorMode, "c", "alpha", colormodeExplain())
 }
 
 var dot_c_buffer bytes.Buffer
 var dot_h_buffer bytes.Buffer
 var w, h int
 
-var colorMode picarray.Mode = picarray.Alpha
-
 func get_byte_size(w, h int) int {
-	if h/8*8 < h {
-		return w * (1 + (h / 8))
+	if picarray.GetMode() < picarray.MonoColor {
+		if h/8*8 < h {
+			return w * (1 + (h / 8))
+		}
+		return w * (h / 8)
+	} else {
+		if picarray.GetMode() == picarray.RGB565 {
+			return w * h * 2
+		}
+		if picarray.GetMode() == picarray.RGB888 {
+			return w * h * 3
+		}
 	}
-	return w * (h / 8)
+	return 0
 }
 
 var totalByteSize int = 0
@@ -143,6 +169,7 @@ func pic2c(path string, varName string, cBuffer *bytes.Buffer, hBuffer *bytes.Bu
 	hBuffer.WriteString(fmt.Sprintf("extern const sBITMAP %s_bmp;\n", varName))
 	return
 }
+
 func array2c(cBuffer *bytes.Buffer, hBuffer *bytes.Buffer) {
 	for k, v := range picArray {
 		if len(v) > 0 {
@@ -170,13 +197,9 @@ func main() {
 		flag.Usage()
 		return
 	}
+	getC := getParrayColorMode()
 
-	picarray.SetMode(picarray.Alpha)
-	if black {
-		picarray.SetMode(picarray.Black)
-	} else if white {
-		picarray.SetMode(picarray.White)
-	}
+	picarray.SetMode(getC(colorMode))
 
 	picArray = make(map[string][]arrayElement)
 	filepath.Walk(inputPath, walker)
@@ -217,33 +240,4 @@ func main() {
 	fmt.Println("Total " + strconv.Itoa(totalByteSize) + " Bytes")
 	fmt.Println("Hash = " + hashStr)
 	fmt.Println("Convert Complete!")
-}
-
-func attrImage(f1 *os.File) (img_type string, frameLen int) {
-	f1.Seek(0, 0)
-	imagetype, _, _ := fastimage.DetectImageTypeFromReader(f1)
-	f1.Seek(0, 0)
-	switch imagetype {
-	case fastimage.GIF:
-		img_type = "GIF"
-		fmt.Println("GIF desu")
-	case fastimage.PNG:
-		img_type = "PNG"
-		fmt.Println("PNG desu")
-	case fastimage.JPEG:
-		img_type = "JPEG"
-		fmt.Println("JPEG desu")
-	case fastimage.BMP:
-		img_type = "BMP"
-		fmt.Println("BMP desu")
-	default:
-		img_type = "OTHER FORMAT"
-		fmt.Println("Onknown format")
-	}
-	frameLen = 1
-	if imagetype == fastimage.GIF {
-		g, _ := gif.DecodeAll(f1)
-		frameLen = len(g.Image)
-	}
-	return img_type, frameLen
 }

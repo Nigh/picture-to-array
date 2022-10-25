@@ -9,23 +9,38 @@ import (
 	_ "image/png"
 )
 
-type Mode int
+type ColorMode int
 
 const (
-	Alpha Mode = iota
+	Alpha ColorMode = iota
 	White
 	Black
+	MonoColor
+	RGB565
+	RGB888
 )
 
 // TODO: bit order && byte order
 
-var colorMode Mode
+var colorMode ColorMode = Alpha
 
-func SetMode(mode Mode) {
+func SetMode(mode ColorMode) {
 	colorMode = mode
 }
 
+func GetMode() ColorMode {
+	return colorMode
+}
+
 func Image2buffer(img image.Image, w int, h int, buffer *bytes.Buffer) {
+	if colorMode < MonoColor {
+		MonoImage2buffer(img, w, h, buffer)
+	} else {
+		RGBImage2buffer(img, w, h, buffer)
+	}
+}
+
+func MonoImage2buffer(img image.Image, w int, h int, buffer *bytes.Buffer) {
 	var x, y, line int
 	for line = 0; line < 1+(h-1)/8; line++ {
 		buffer.WriteString("\n\t")
@@ -42,11 +57,11 @@ func Image2buffer(img image.Image, w int, h int, buffer *bytes.Buffer) {
 							c_byte |= 0x80
 						}
 					case White:
-						if (r>>8)+(g>>8)+(b>>8) > 200 {
+						if (r>>8)+(g>>8)+(b>>8) > 192 {
 							c_byte |= 0x80
 						}
 					case Black:
-						if (r>>8)+(g>>8)+(b>>8) < 100 {
+						if (r>>8)+(g>>8)+(b>>8) < 64 {
 							c_byte |= 0x80
 						}
 					}
@@ -56,6 +71,32 @@ func Image2buffer(img image.Image, w int, h int, buffer *bytes.Buffer) {
 				buffer.WriteString(" ")
 			}
 			buffer.WriteString(fmt.Sprintf("0x%02X,", c_byte))
+		}
+	}
+}
+
+func RGBImage2buffer(img image.Image, w int, h int, buffer *bytes.Buffer) {
+	var x, y int
+	for y = 0; y < h; y++ {
+		buffer.WriteString("\n\t")
+		for x = 0; x < w; x++ {
+			var c_byte []uint8
+			r, g, b, _ := img.At(x, y).RGBA()
+			switch colorMode {
+			case RGB565:
+				c_byte = append(c_byte, (uint8)((r&0xF8)|(g>>5)))
+				c_byte = append(c_byte, (uint8)(((g<<3)&0xE)|(b>>3)))
+			case RGB888:
+				c_byte = append(c_byte, (uint8)(r))
+				c_byte = append(c_byte, (uint8)(g))
+				c_byte = append(c_byte, (uint8)(b))
+			}
+			if x > 0 {
+				buffer.WriteString(" ")
+			}
+			for i := 0; i < len(c_byte); i++ {
+				buffer.WriteString(fmt.Sprintf("0x%02X,", c_byte[i]))
+			}
 		}
 	}
 }
