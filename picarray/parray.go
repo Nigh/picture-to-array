@@ -84,8 +84,8 @@ func RGBImage2buffer(img image.Image, w int, h int, buffer *bytes.Buffer) {
 			r, g, b, _ := img.At(x, y).RGBA()
 			switch colorMode {
 			case RGB565:
-				c_byte = append(c_byte, (uint8)((r&0xF8)|(g>>5)))
-				c_byte = append(c_byte, (uint8)(((g<<3)&0xE)|(b>>3)))
+				c_byte = append(c_byte, (uint8)((r&0xF8)|((g&0xFF)>>5)))
+				c_byte = append(c_byte, (uint8)(((g<<3)&0xE0)|((b&0xFF)>>3)))
 			case RGB888:
 				c_byte = append(c_byte, (uint8)(r))
 				c_byte = append(c_byte, (uint8)(g))
