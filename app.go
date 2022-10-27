@@ -109,6 +109,7 @@ type arrayElement struct {
 
 var picArray map[string][]arrayElement
 
+// TODO: walker的顺序在windows上无法保证每次一致，需要自行维护并排序
 func walker(realPath string, f os.FileInfo, err error) error {
 	// 忽略 . 与 _ 开头的文件和目录
 	if f.IsDir() {
@@ -116,7 +117,6 @@ func walker(realPath string, f os.FileInfo, err error) error {
 			fmt.Println("[DIR] " + f.Name() + " !!!IGNORED!!!")
 			return filepath.SkipDir
 		}
-
 		fmt.Println("[DIR] " + f.Name() + " " + realPath)
 	} else {
 		// TODO: maintain a ignore list in which type of files which would be genarated by system automatically, such as Thumb.db
