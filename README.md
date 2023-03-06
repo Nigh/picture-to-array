@@ -6,6 +6,17 @@
 
 以下划线`_`或者小数点`.`开头的文件将会被忽略。
 
+基础用法: `app.exe [-c {alpha|black|white|rgb565|rgb888}] -in [<input_path>] -out [<output_path>]`
+
+其中，`-c`参数表示像素解析方式，其中`alpha`，`black`和`white`三种为`1bit`模式：
+
+- `alpha`：非透明像素作为1
+- `black`：黑色像素作为1
+- `white`：白色像素作为1
+
+`rgb565`则是16位彩色模式，每个像素输出为`2 bytes`数据，`rgb888`为24位彩色模式，每个像素输出为`3 bytes`数据。
+
+
 ### 单文件
 
 `app.exe -in abc/assets -out out/carrays`
