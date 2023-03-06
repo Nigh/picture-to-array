@@ -282,7 +282,7 @@ func main() {
 	outputCFile.WriteString(finalCFileBuffer.String())
 
 	hash := sha1.New()
-	hash.Write(finalHFileBuffer.Bytes())
+	hash.Write(finalCFileBuffer.Bytes())
 	hashStr := hex.EncodeToString(hash.Sum(nil))
 
 	outputHFile.WriteString("#ifndef _" + string(hashStr) + "_\n")
