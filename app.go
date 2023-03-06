@@ -24,7 +24,7 @@ import (
 	"os"
 )
 
-var Version string = "v1.40"
+var Version string = "v1.41"
 
 func check(e error) {
 	if e != nil {
