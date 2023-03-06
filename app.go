@@ -10,6 +10,7 @@ import (
 	"image"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -23,7 +24,7 @@ import (
 	"os"
 )
 
-var Version string = "v1.30"
+var Version string = "v1.40"
 
 func check(e error) {
 	if e != nil {
@@ -78,8 +79,18 @@ func init() {
 	flag.StringVar(&colorMode, "c", "alpha", colormodeExplain())
 }
 
-var dot_c_buffer bytes.Buffer
-var dot_h_buffer bytes.Buffer
+type picUnit struct {
+	name string
+	cbuf bytes.Buffer
+	hbuf bytes.Buffer
+}
+
+// 片段buffer，用于排序后输出至最终文件
+var picUnits []picUnit
+
+// 最终输出文件buffer
+var finalCFileBuffer bytes.Buffer
+var finalHFileBuffer bytes.Buffer
 var w, h int
 
 func get_byte_size(w, h int) int {
@@ -107,9 +118,15 @@ type arrayElement struct {
 	fileName string
 }
 
-var picArray map[string][]arrayElement
+type picarrayElement struct {
+	dirName  string
+	varName  string
+	fileName string
+}
 
-// TODO: walker的顺序在windows上无法保证每次一致，需要自行维护并排序
+var picArrayMap map[string][]arrayElement
+var picArraySlice [][]picarrayElement
+
 func walker(realPath string, f os.FileInfo, err error) error {
 	// 忽略 . 与 _ 开头的文件和目录
 	if f.IsDir() {
@@ -137,13 +154,19 @@ func walker(realPath string, f os.FileInfo, err error) error {
 			dirVarName = filepath.Dir(dirVarName)
 			dirVarName = strings.Replace(filepath.FromSlash(dirVarName), string(filepath.Separator), "_", -1)
 			dirVarName = r.ReplaceAllString(dirVarName, "")
-			picArray[dirVarName] = append(picArray[dirVarName],
+			picArrayMap[dirVarName] = append(picArrayMap[dirVarName],
 				arrayElement{
 					varName:  varName,
 					fileName: f.Name(),
 				})
 		}
-		totalByteSize += pic2c(realPath, varName, &dot_c_buffer, &dot_h_buffer)
+		picUnits = append(picUnits, picUnit{})
+		picUnits[len(picUnits)-1].name = varName
+		totalByteSize += pic2c(
+			realPath,
+			picUnits[len(picUnits)-1].name,
+			&picUnits[len(picUnits)-1].cbuf,
+			&picUnits[len(picUnits)-1].hbuf)
 		totalFileCount += 1
 	}
 	return nil
@@ -170,16 +193,27 @@ func pic2c(path string, varName string, cBuffer *bytes.Buffer, hBuffer *bytes.Bu
 	return
 }
 
-func array2c(cBuffer *bytes.Buffer, hBuffer *bytes.Buffer) {
-	for k, v := range picArray {
+func picslice2c(cBuffer *bytes.Buffer, hBuffer *bytes.Buffer) {
+	for _, v := range picArraySlice {
 		if len(v) > 0 {
-			cBuffer.WriteString(fmt.Sprintf("\nconst sBITMAP* %s_array[%d] = {\n", k, len(v)))
+			cBuffer.WriteString(fmt.Sprintf("\nconst sBITMAP* %s_array[%d] = {\n", v[0].dirName, len(v)))
 			for _, e := range v {
 				cBuffer.WriteString("\t&" + e.varName + "_bmp,")
 				cBuffer.WriteString(" // " + e.fileName + "\n")
 			}
 			cBuffer.WriteString("};\n")
-			hBuffer.WriteString(fmt.Sprintf("extern const sBITMAP* %s_array[%d];\n", k, len(v)))
+			hBuffer.WriteString(fmt.Sprintf("extern const sBITMAP* %s_array[%d];\n", v[0].dirName, len(v)))
+		}
+	}
+}
+func picmap2slice() {
+	for name, v := range picArrayMap {
+		if len(v) > 0 {
+			picArraySlice = append(picArraySlice, []picarrayElement{})
+			for _, e := range v {
+				picArraySlice[len(picArraySlice)-1] = append(picArraySlice[len(picArraySlice)-1],
+					picarrayElement{dirName: name, varName: e.varName, fileName: e.fileName})
+			}
 		}
 	}
 }
@@ -197,13 +231,34 @@ func main() {
 		flag.Usage()
 		return
 	}
+
+	picUnits = make([]picUnit, 0)
+	picArraySlice = make([][]picarrayElement, 0)
+	picArrayMap = make(map[string][]arrayElement)
+
 	getC := getParrayColorMode()
 
 	picarray.SetMode(getC(colorMode))
 
-	picArray = make(map[string][]arrayElement)
 	filepath.Walk(inputPath, walker)
-	array2c(&dot_c_buffer, &dot_h_buffer)
+
+	// DONE: buffer排序后写入final buffer
+	sort.SliceStable(picUnits, func(i, j int) bool {
+		return strings.Compare(picUnits[i].name, picUnits[j].name) < 0
+	})
+	for _, v := range picUnits {
+		finalCFileBuffer.Write(v.cbuf.Bytes())
+		finalHFileBuffer.Write(v.hbuf.Bytes())
+	}
+	// DONE: picArray排序后再写入final buffer
+	// first: picArrayMap to picArraySlice
+	picmap2slice()
+	// then: sort picArraySlice
+	sort.SliceStable(picArraySlice, func(i, j int) bool {
+		return strings.Compare(picArraySlice[i][0].dirName, picArraySlice[j][0].dirName) < 0
+	})
+	// finally: write picArraySlice to buffer
+	picslice2c(&finalCFileBuffer, &finalHFileBuffer)
 
 	if checkFileIsExist(outputPath + ".c") {
 		check(os.Remove(outputPath + ".c"))
@@ -224,16 +279,16 @@ func main() {
 	outputHFile.WriteString(versionStr)
 
 	outputCFile.WriteString(`#include "bitmap.h"` + "\n\n")
-	outputCFile.WriteString(dot_c_buffer.String())
+	outputCFile.WriteString(finalCFileBuffer.String())
 
 	hash := sha1.New()
-	hash.Write(dot_h_buffer.Bytes())
+	hash.Write(finalHFileBuffer.Bytes())
 	hashStr := hex.EncodeToString(hash.Sum(nil))
 
 	outputHFile.WriteString("#ifndef _" + string(hashStr) + "_\n")
 	outputHFile.WriteString("#define _" + string(hashStr) + "_\n")
 	outputHFile.WriteString(`#include "bitmap.h"` + "\n\n")
-	outputHFile.WriteString(dot_h_buffer.String())
+	outputHFile.WriteString(finalHFileBuffer.String())
 	outputHFile.WriteString("#endif\n")
 
 	fmt.Println("Total " + strconv.Itoa(totalFileCount) + " Files")
