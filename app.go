@@ -24,7 +24,14 @@ import (
 	"os"
 )
 
-var Version string = "v1.41"
+var Version string = "v1.42"
+
+func p2aLog(level int, a ...any) (n int, err error) {
+	if logLevel >= level {
+		n, err = fmt.Println(a...)
+	}
+	return
+}
 
 func check(e error) {
 	if e != nil {
@@ -45,6 +52,12 @@ var (
 	inputPath  string
 	outputPath string
 	colorMode  string
+
+	// 3: file detail
+	// 2: dir info
+	// 1: total info
+	// 0: minimal
+	logLevel int
 )
 
 func getParrayColorMode() func(string) picarray.ColorMode {
@@ -77,6 +90,7 @@ func init() {
 	flag.StringVar(&inputPath, "in", "", "the picture file or dir for convert to c language array")
 	flag.StringVar(&outputPath, "out", "", "the c format array output filename")
 	flag.StringVar(&colorMode, "c", "alpha", colormodeExplain())
+	flag.IntVar(&logLevel, "q", 3, "log level (0~3), 3 for most detail logs")
 }
 
 type picUnit struct {
@@ -131,18 +145,18 @@ func walker(realPath string, f os.FileInfo, err error) error {
 	// 忽略 . 与 _ 开头的文件和目录
 	if f.IsDir() {
 		if strings.HasPrefix(f.Name(), ".") || strings.HasPrefix(f.Name(), "_") {
-			fmt.Println("[DIR] " + f.Name() + " !!!IGNORED!!!")
+			p2aLog(1, "[DIR] "+f.Name()+" !!!IGNORED!!!")
 			return filepath.SkipDir
 		}
-		fmt.Println("[DIR] " + f.Name() + " " + realPath)
+		p2aLog(1, "[DIR] "+f.Name()+" "+realPath)
 	} else {
 		// TODO: maintain a ignore list in which type of files which would be genarated by system automatically, such as Thumb.db
 		if strings.HasPrefix(f.Name(), ".") || strings.HasPrefix(f.Name(), "_") || strings.HasSuffix(f.Name(), "db") {
-			fmt.Println("\t[FILE]\t「" + f.Name() + "」 !!!IGNORED!!!")
+			p2aLog(2, "\t[FILE]\t「"+f.Name()+"」 !!!IGNORED!!!")
 			return nil
 		}
 		relPath, _ := filepath.Rel(inputPath, realPath)
-		fmt.Println("\t[FILE]\t「" + f.Name() + "」@『" + relPath + "』\t| " + strconv.FormatInt(f.Size(), 10) + " Bytes")
+		p2aLog(2, "\t[FILE]\t「"+f.Name()+"」@『"+relPath+"』\t| "+strconv.FormatInt(f.Size(), 10)+" Bytes")
 		relPath = strings.Replace(filepath.FromSlash(relPath), string(filepath.Separator), "_", -1)
 		r := regexp.MustCompile(`\[.+?\]`)
 		// DONE: 去除varName中的[.+?]
@@ -184,7 +198,7 @@ func pic2c(path string, varName string, cBuffer *bytes.Buffer, hBuffer *bytes.Bu
 	h = img.Bounds().Size().Y
 	byteSize = get_byte_size(w, h)
 	strconv.Itoa(w)
-	fmt.Println("\t\tSize:[" + strconv.Itoa(w) + "x" + strconv.Itoa(h) + "] " + strconv.Itoa(byteSize) + " bytes")
+	p2aLog(3, "\t\tSize:["+strconv.Itoa(w)+"x"+strconv.Itoa(h)+"] "+strconv.Itoa(byteSize)+" bytes")
 	cBuffer.WriteString(fmt.Sprintf("const uint8_t %s[%d] = {", varName, byteSize))
 	picarray.Image2buffer(img, w, h, cBuffer)
 	cBuffer.WriteString("\n};")
@@ -291,8 +305,8 @@ func main() {
 	outputHFile.WriteString(finalHFileBuffer.String())
 	outputHFile.WriteString("#endif\n")
 
-	fmt.Println("Total " + strconv.Itoa(totalFileCount) + " Files")
-	fmt.Println("Total " + strconv.Itoa(totalByteSize) + " Bytes")
-	fmt.Println("Hash = " + hashStr)
-	fmt.Println("Convert Complete!")
+	p2aLog(0, "Total "+strconv.Itoa(totalFileCount)+" Files")
+	p2aLog(0, "Total "+strconv.Itoa(totalByteSize)+" Bytes")
+	p2aLog(0, "Hash = "+hashStr)
+	p2aLog(0, "Convert Complete!")
 }
