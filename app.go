@@ -18,6 +18,7 @@ import (
 
 	_ "github.com/hotei/bmp"
 
+	"image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 
@@ -186,24 +187,57 @@ func walker(realPath string, f os.FileInfo, err error) error {
 	return nil
 }
 
+func nogif2buffer(file *os.File, varName string, cBuffer *bytes.Buffer, hBuffer *bytes.Buffer) (byteSize int) {
+	img, _, err := image.Decode(file)
+	check(err)
+	w := img.Bounds().Size().X
+	h := img.Bounds().Size().Y
+	byteSize = get_byte_size(w, h)
+	p2aLog(3, "\t\tSize:["+strconv.Itoa(w)+"x"+strconv.Itoa(h)+"] "+strconv.Itoa(byteSize)+" bytes")
+	picarray.Image2buffer(img, varName, cBuffer)
+	hBuffer.WriteString(fmt.Sprintf("extern const sBITMAP %s_bmp;\n", varName))
+	return
+}
+func gif2buffer(file *os.File, varName string, cBuffer *bytes.Buffer, hBuffer *bytes.Buffer) (byteSize int) {
+
+	gifx, err := gif.DecodeAll(file)
+	check(err)
+
+	byteSize = picarray.Gif2buffer(gifx, varName, cBuffer)
+	if len(gifx.Image) > 1 {
+		hBuffer.WriteString(fmt.Sprintf("extern const sGIF %s_gif;\n", varName))
+	} else {
+		hBuffer.WriteString(fmt.Sprintf("extern const sFRAME %s_frame;\n", varName))
+	}
+
+	var avrFrameLength int = 0
+	bits := len(gifx.Image[0].Palette)
+	bitLen := 0
+	for bits > 0 {
+		bitLen += 1
+		bits /= 2
+	}
+	for _, p := range gifx.Image {
+		avrFrameLength += len(p.Pix) * bitLen
+	}
+	avrFrameLength /= len(gifx.Image)
+	fmt.Printf("frameLength = %d bytes x %d frames\n", avrFrameLength/8, len(gifx.Image))
+	return
+}
+
 func pic2c(path string, varName string, cBuffer *bytes.Buffer, hBuffer *bytes.Buffer) (byteSize int) {
 	f1, err := os.Open(path)
 	check(err)
 	defer f1.Close()
 
-	img, _, err := image.Decode(f1)
+	_, picType, err := image.DecodeConfig(f1)
 	check(err)
-
-	w = img.Bounds().Size().X
-	h = img.Bounds().Size().Y
-	byteSize = get_byte_size(w, h)
-	strconv.Itoa(w)
-	p2aLog(3, "\t\tSize:["+strconv.Itoa(w)+"x"+strconv.Itoa(h)+"] "+strconv.Itoa(byteSize)+" bytes")
-	cBuffer.WriteString(fmt.Sprintf("const uint8_t %s[%d] = {", varName, byteSize))
-	picarray.Image2buffer(img, w, h, cBuffer)
-	cBuffer.WriteString("\n};")
-	cBuffer.WriteString(fmt.Sprintf("\nconst sBITMAP %s_bmp = {%d, %d, %s};\n", varName, w, h, varName))
-	hBuffer.WriteString(fmt.Sprintf("extern const sBITMAP %s_bmp;\n", varName))
+	f1.Seek(0, 0)
+	if picType == "gif" {
+		byteSize = gif2buffer(f1, varName, cBuffer, hBuffer)
+	} else {
+		byteSize = nogif2buffer(f1, varName, cBuffer, hBuffer)
+	}
 	return
 }
 
