@@ -25,7 +25,7 @@ import (
 	"os"
 )
 
-var Version string = "v1.42"
+var Version string = "v1.50"
 
 func p2aLog(level int, a ...any) (n int, err error) {
 	if logLevel >= level {
@@ -106,7 +106,6 @@ var picUnits []picUnit
 // 最终输出文件buffer
 var finalCFileBuffer bytes.Buffer
 var finalHFileBuffer bytes.Buffer
-var w, h int
 
 func get_byte_size(w, h int) int {
 	if picarray.GetMode() < picarray.MonoColor {
