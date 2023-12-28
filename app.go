@@ -244,13 +244,13 @@ func pic2c(path string, varName string, cBuffer *bytes.Buffer, hBuffer *bytes.Bu
 func picslice2c(cBuffer *bytes.Buffer, hBuffer *bytes.Buffer) {
 	for _, v := range picArraySlice {
 		if len(v) > 0 {
-			cBuffer.WriteString(fmt.Sprintf("\nconst sBITMAP* %s_array[%d] = {\n", v[0].dirName, len(v)))
+			cBuffer.WriteString(fmt.Sprintf("\nconst void* %s_array[%d] = {\n", v[0].dirName, len(v)))
 			for _, e := range v {
 				cBuffer.WriteString("\t&" + e.varName + "_bmp,")
 				cBuffer.WriteString(" // " + e.fileName + "\n")
 			}
 			cBuffer.WriteString("};\n")
-			hBuffer.WriteString(fmt.Sprintf("extern const sBITMAP* %s_array[%d];\n", v[0].dirName, len(v)))
+			hBuffer.WriteString(fmt.Sprintf("extern const void* %s_array[%d];\n", v[0].dirName, len(v)))
 		}
 	}
 }
